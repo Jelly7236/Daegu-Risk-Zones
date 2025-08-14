@@ -115,20 +115,18 @@ df_building_filter1.to_csv(
 )
 print("저장 완료")
 
-import pandas as pd
-
 # 합칠 파일 경로 리스트
 files = [
-    "./Data/건축물2_좌표.csv",
-    "./Data/건축물대장1_1.csv",
-    "./Data/건축물대장1_2.csv",
-    "./Data/건축물대장1_3.csv",
-    "./Data/건축물대장1_4.csv",
-    "./Data/건축물대장1_5.csv",
-    "./Data/건축물대장1_6.csv",
-    "./Data/대구_건축물대장_2(6~80000).csv",
-    "./Data/대구_건축물대장_all.csv",
-    "./Data/건축물대장(30000~49999).csv"
+    "./Raw Data/건축물대장_위도경도포함/건축물2_좌표.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_1.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_2.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_3.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_4.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_5.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_6.csv",
+    "./Raw Data/건축물대장_위도경도포함/대구_건축물대장_2(6~80000).csv",
+    "./Raw Data/건축물대장_위도경도포함/대구_건축물대장_all.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장(30000~49999).csv"
 ]
 
 # 뽑을 컬럼 목록
@@ -153,22 +151,4 @@ for file in files:
 merged_df = pd.concat(dfs, ignore_index=True)
 
 # 저장
-merged_df.to_csv("건축물대장_통합_필터.csv", index=False, encoding="utf-8-sig")
-
-df = pd.read_csv("./Data/점수기준.csv")
-df.loc[1, :]["기준 / 조건"] = '10층 이하: 0.0\n11층~15층: +1.0\n16층~20층: +2.0\n21층 이상: +3.0'
-df.to_csv("./Data/점수기준(new).csv")
-
-from scoring import *
-
-df = pd.read_csv("./Data/건축물대장_통합_필터.csv")
-df = df.dropna()
-df["건물노후도점수"] = df["사용승인년도"].apply(aging_score)
-df["지상층수점수"] = df["지상층수"].apply(aboveground_floors_score)
-df["지하층수점수"] = df["지하층수"].apply(basement_floors_score)
-df["주용도점수"] = df["주용도코드명"].apply(main_use_score_exact)
-df["구조점수"] = df["구조코드명"].apply(structure_score)
-df["비상용승강기점수"] = df["비상용승강기수"].apply(emergency_elevator_score)
-df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"]
-
-df.to_csv("./Data/건축물대장_통합_점수포함.csv")
+merged_df.to_csv("건축물대장_통합.csv", index=False, encoding="utf-8-sig")
