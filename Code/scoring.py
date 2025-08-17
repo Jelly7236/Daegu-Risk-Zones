@@ -351,10 +351,9 @@ def emergency_elevator_score(value) -> float:
     else:  # 5대 이상
         return 0.0
     
-##############################################################
+
 # 점수 산정
-df = pd.read_csv("./Data/건축물대장_통합.csv")
-df = df.dropna()
+df = pd.read_csv("../Data/건축물대장_통합.csv")
 df["건물노후도점수"] = df["사용승인년도"].apply(aging_score)
 df["지상층수점수"] = df["지상층수"].apply(aboveground_floors_score)
 df["지하층수점수"] = df["지하층수"].apply(basement_floors_score)
@@ -363,33 +362,4 @@ df["구조점수"] = df["구조코드명"].apply(structure_score)
 df["비상용승강기점수"] = df["비상용승강기수"].apply(emergency_elevator_score)
 df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"]
 
-df.to_csv("./Data/건축물대장_통합_점수포함.csv")
-
-##############################################################
-# 그룹화
-_DONG_EUP_MYEON_RE = re.compile(
-    r'(?<![가-힣0-9])'           # 앞이 한글/숫자가 아니어야(단어 경계 유사)
-    r'([가-힣]+(?:(?:제)?\d+)?'   # 동 이름 + (제)?숫자 옵션
-    r'(?:동|읍|면))'              # 동/읍/면 접미사
-    r'(?![가-힣])'                # 뒤가 한글이면 안 됨(예: '동산' 오탐 방지)
-)
-
-def extract_dong_eup_myeon(addr, default=None):
-    if addr is None:
-        return default
-    # NaN 처리
-    if isinstance(addr, float) and math.isnan(addr):
-        return default
-
-    s = str(addr).strip()
-    if not s or s.lower() == "nan":
-        return default
-
-    m = _DONG_EUP_MYEON_RE.search(s)
-    return m.group(1) if m else default
-
-df["동읍면"] = df["대지위치"].apply(extract_dong_eup_myeon)
-
-df.columns
-df_grouped = df.groupby("동읍면")["종합점수"].mean()
-
+df.to_csv("../Data/건축물대장_통합_점수포함.csv")
