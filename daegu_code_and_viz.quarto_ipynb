@@ -27,7 +27,7 @@
         "\n",
         "### 데이터 확인 1: 결측치 전체 확인"
       ],
-      "id": "04307a0f"
+      "id": "fb456f88"
     },
     {
       "cell_type": "code",
@@ -49,7 +49,7 @@
         "print(\"경도 결측:\", df_building_original[\"경도\"].isna().sum())\n",
         "print(\"위도/경도 모두 결측:\", (df_building_original[\"위도\"].isna() & df_building_original[\"경도\"].isna()).sum())"
       ],
-      "id": "c53c5be3",
+      "id": "8721a7f9",
       "execution_count": null,
       "outputs": []
     },
@@ -59,7 +59,7 @@
       "source": [
         "### 데이터 확인 2-1: 위경도 결측치 중 구조코드명별 퍼센트"
       ],
-      "id": "528f094a"
+      "id": "bb13f1ff"
     },
     {
       "cell_type": "code",
@@ -78,7 +78,7 @@
         "df_building_grouped = df_building_grouped.sort_values(['수','구조코드명'], ascending=[False, True], ignore_index=True)\n",
         "df_building_grouped"
       ],
-      "id": "f649c6df",
+      "id": "29968764",
       "execution_count": null,
       "outputs": []
     },
@@ -88,7 +88,7 @@
       "source": [
         "### 데이터 확인 2-2: 위경도 결측치 중 일반목구조 비율"
       ],
-      "id": "0977d992"
+      "id": "1d7f7f64"
     },
     {
       "cell_type": "code",
@@ -99,7 +99,7 @@
         "filter_wooden_structure = df_building_grouped.loc[df_building_grouped[\"구조코드명\"] == \"일반목구조\", \"수\"].values[0]\n",
         "(filter_wooden_structure / original_wooden_structure * 100).round(2)"
       ],
-      "id": "6a380f23",
+      "id": "fedbc1fe",
       "execution_count": null,
       "outputs": []
     },
@@ -109,7 +109,7 @@
       "source": [
         "### 위도 경도 컬럼 추가"
       ],
-      "id": "607f6ebe"
+      "id": "fe9a095d"
     },
     {
       "cell_type": "code",
@@ -249,7 +249,7 @@
         "# 저장\n",
         "merged_df.to_csv(\"./Data/건축물대장_통합.csv\", index=False, encoding=\"utf-8-sig\")"
       ],
-      "id": "ee59b6e1",
+      "id": "7677868e",
       "execution_count": null,
       "outputs": []
     },
@@ -259,7 +259,7 @@
       "source": [
         "### 소화전/소방서 최소거리 컬럼 추가"
       ],
-      "id": "acd5f641"
+      "id": "6210ee86"
     },
     {
       "cell_type": "code",
@@ -306,7 +306,7 @@
         "# 결과 저장\n",
         "df_building.to_csv('./Data/건축물대장_소화전_소방서거리.csv', index=False)"
       ],
-      "id": "b84446ed",
+      "id": "aa266bb0",
       "execution_count": null,
       "outputs": []
     },
@@ -316,7 +316,7 @@
       "source": [
         "### 건축물 종합 점수 산정"
       ],
-      "id": "c7cbc3dc"
+      "id": "cf436b52"
     },
     {
       "cell_type": "code",
@@ -649,7 +649,7 @@
         "\n",
         "df.to_csv(\"./Data/건축물대장_통합_점수.csv\")"
       ],
-      "id": "498691ef",
+      "id": "635602c8",
       "execution_count": null,
       "outputs": []
     },
@@ -659,9 +659,9 @@
       "source": [
         "## 2) 시각화\n",
         "\n",
-        "### 대구광역시 119안전센터 및 소화장치 위치 시각화"
+        "### 119안전센터 및 소화장치 위치 시각화"
       ],
-      "id": "e661aeae"
+      "id": "eb425e19"
     },
     {
       "cell_type": "code",
@@ -728,11 +728,105 @@
         "    mapbox_center={\"lat\": 35.8714, \"lon\": 128.6014},\n",
         "    margin={\"r\":0, \"t\":30, \"l\":0, \"b\":0},\n",
         ")\n",
-        "fig.show()\n",
+        "fig.show()"
+      ],
+      "id": "a73d813b",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 소방서, 소화전 거리 분포 시각화"
+      ],
+      "id": "08e3c90e"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "# %% 라이브러리 호출\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "import plotly.express as px\n",
+        "# %% 데이터 로드\n",
+        "df = pd.read_csv('./Data/건축물대장_통합_점수.csv')\n",
+        "hyd = pd.read_csv('./Raw Data/대구광역시_소화장치_위치데이터.csv')\n",
+        "#firestn = pd.read_csv('대구광역시_소방서_위치데이터.csv', encoding='cp949')\n",
+        "# %%\n",
+        "hydrant_lats = np.radians(hyd[\"위도\"].values)\n",
+        "hydrant_lons = np.radians(hyd[\"경도\"].values)\n",
+        "# %% 거리계산 함수 정의\n",
+        "def haversine_min_distance(lat1, lon1, hy_lats, hy_lons):\n",
+        "    R = 6371000  # 지구 반지름 (m)\n",
+        "    lat1 = np.radians(lat1)\n",
+        "    lon1 = np.radians(lon1)\n",
+        "    \n",
+        "    dlat = hy_lats - lat1\n",
+        "    dlon = hy_lons - lon1\n",
+        "    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(hy_lats) * np.sin(dlon / 2)**2\n",
+        "    c = 2 * np.arcsin(np.sqrt(a))\n",
+        "    distances = R * c\n",
+        "    return distances.min()\n",
+        "# %% min({소화전거리(m)})\n",
+        "df['소화전거리'] = df.apply(\n",
+        "    lambda row: haversine_min_distance(row[\"위도\"], row[\"경도\"], hydrant_lats, hydrant_lons),\n",
+        "    axis=1\n",
+        ")\n",
+        "# %%\n",
+        "df['소화전거리'].head()\n",
+        "# %% 소방서 데이터\n",
+        "firestation = pd.read_csv('./Data/대구_소방서_위치.csv')\n",
+        "firestation.head()\n",
+        "# %% min({소방서거리(m)})\n",
+        "station_lats = np.radians(firestation[\"위도\"].values)\n",
+        "station_lons = np.radians(firestation[\"경도\"].values)\n",
+        "df[\"소방서거리\"] = df.apply(\n",
+        "    lambda row: haversine_min_distance(row[\"위도\"], row[\"경도\"], station_lats, station_lons),\n",
+        "    axis=1\n",
+        ")\n",
         "\n",
+        "# %% 소방서거리, 소화전거리 분포 시각화\n",
         "\n",
+        "# 소방서거리 분포\n",
+        "fig1 = px.histogram(df, x=\"소방서거리\", nbins=100, title=\"가장 가까운 소방서 거리 분포\", marginal=\"box\")\n",
+        "fig1.update_layout(\n",
+        "    bargap=0.1,\n",
+        "    xaxis_title=\"거리(m)\",\n",
+        "    yaxis_title=\"건물 수\",\n",
+        "    template='plotly_white'\n",
+        ")\n",
         "\n",
+        "fig1.show()\n",
         "\n",
+        "# 소화전거리 분포\n",
+        "fig2 = px.histogram(df, x=\"소화전거리\", nbins=100, title=\"가장 가까운 소화전 거리 분포\", marginal=\"box\")\n",
+        "fig2.update_layout(\n",
+        "    bargap=0.1,\n",
+        "    xaxis_title=\"거리(m)\",\n",
+        "    yaxis_title=\"건물 수\",\n",
+        "    template='plotly_white'\n",
+        ")\n",
+        "\n",
+        "fig2.show()"
+      ],
+      "id": "570ac16b",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 노령 인구 시각화"
+      ],
+      "id": "c3e6eba9"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
         "#======================================\n",
         "# 노령 인구 비율 시각화\n",
         "#======================================\n",
@@ -829,7 +923,7 @@
         "fig.update_layout(margin={\"r\":0,\"t\":30,\"l\":0,\"b\":0}) \n",
         "fig.show()"
       ],
-      "id": "2dced6f0",
+      "id": "9b1e6428",
       "execution_count": null,
       "outputs": []
     },
@@ -839,7 +933,7 @@
       "source": [
         "### 건축물대장 시각화"
       ],
-      "id": "d6c6d763"
+      "id": "032fd5be"
     },
     {
       "cell_type": "code",
@@ -1164,7 +1258,41 @@
         "fig7.show()\n",
         "# %%"
       ],
-      "id": "ad3322b0",
+      "id": "84c71d56",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 종합점수 분포"
+      ],
+      "id": "436eaf16"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import numpy as np\n",
+        "import pandas as pd\n",
+        "import matplotlib.pyplot as plt\n",
+        "import seaborn as sns\n",
+        "\n",
+        "df = pd.read_csv('./Data/건축물대장_동추가.csv')\n",
+        "\n",
+        "plt.rcParams['font.family'] = 'Malgun Gothic'\n",
+        "plt.rcParams['axes.unicode_minus'] = False\n",
+        "\n",
+        "# 종합점수 시각화\n",
+        "plt.figure(figsize=(10, 6))\n",
+        "sns.histplot(df[\"종합점수\"], kde=False, bins=50, color=\"skyblue\")\n",
+        "plt.title(\"종합점수 분포\", fontsize=16)\n",
+        "plt.xlabel(\"종합점수\", fontsize=12)\n",
+        "plt.ylabel(\"건물 수\", fontsize=12)\n",
+        "plt.show()"
+      ],
+      "id": "a22a2cf3",
       "execution_count": null,
       "outputs": []
     }
