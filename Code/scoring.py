@@ -351,6 +351,50 @@ def emergency_elevator_score(value) -> float:
     else:  # 5대 이상
         return 0.0
     
+def firestation_distance_score(dist_m, cap_over_max=True, invalid_to_nan=True):
+    arr = np.asarray(dist_m, dtype=float)
+
+    # 음수/이상치 처리
+    if invalid_to_nan:
+        arr = np.where(arr < 0, np.nan, arr)
+
+    default_val = 5.0 if cap_over_max else np.nan
+    scores = np.select(
+        [arr < 1000, arr < 3000, arr < 5000, arr < 7000, arr < 9000],
+        [1.0,        2.0,        3.0,        4.0,        5.0],
+        default=default_val
+    )
+
+    # 입력 타입 유지해서 반환
+    if np.isscalar(dist_m):
+        return float(scores.item())
+    if isinstance(dist_m, pd.Series):
+        return pd.Series(scores, index=dist_m.index, name=getattr(dist_m, "name", None))
+    return scores
+
+def hydrant_distance_score(dist_m, cap_over_max=True, invalid_to_nan=True):
+    arr = np.asarray(dist_m, dtype=float)
+
+    # 이상치 처리
+    if invalid_to_nan:
+        arr = np.where(arr < 0, np.nan, arr)
+
+    default_val = 5.0 if cap_over_max else np.nan
+    scores = np.select(
+        [arr <= 30, arr <= 60, arr <= 90, arr <= 120, arr <= 150],
+        [1.0,       2.0,       3.0,       4.0,        5.0],
+        default=default_val
+    )
+
+    # NaN 입력은 그대로 NaN 유지
+    scores = np.where(np.isnan(arr), np.nan, scores)
+
+    # 입력 타입 유지
+    if np.isscalar(dist_m):
+        return float(np.asarray(scores).item())
+    if isinstance(dist_m, pd.Series):
+        return pd.Series(scores, index=dist_m.index, name=getattr(dist_m, "name", None))
+    return scores
 
 # 점수 산정
 df = pd.read_csv("../Data/건축물대장_소화전_소방서거리.csv")
@@ -360,6 +404,8 @@ df["지하층수점수"] = df["지하층수"].apply(basement_floors_score)
 df["주용도점수"] = df["주용도코드명"].apply(main_use_score_exact)
 df["구조점수"] = df["구조코드명"].apply(structure_score)
 df["비상용승강기점수"] = df["비상용승강기수"].apply(emergency_elevator_score)
-df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"]
+df["소방서거리점수"] = df["소방서거리"].apply(firestation_distance_score)
+df["소화전거리점수"] = df["소화전거리"].apply(hydrant_distance_score)
+df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"] + df["소방서거리점수"] + df["소화전거리점수"]
 
 df.to_csv("../Data/건축물대장_통합_점수.csv")
