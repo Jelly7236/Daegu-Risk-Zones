@@ -20,7 +20,7 @@ loc_fire = pd.read_csv("../Data/대구_소방장치_위치.csv")
 
 # 대구광역시 구별 소방 안전센터 시각화 
 import json
-with open ("../Data/대구_시군구_군위포함.geojson", encoding='utf-8') as f:
+with open ("../Data/시각화/대구_시군구_군위포함/대구_시군구_군위포함.geojson", encoding='utf-8') as f:
     geojson_data = json.load(f)
 # print(geojson_data.keys())
 
@@ -84,13 +84,13 @@ g2_by_dong = g2_by_dong.reset_index()
 # g2_by_dong.info()
 
 import geopandas as gpd
-gdf = gpd.read_file("../Data/대구_행정동_군위포함.shp")
+gdf = gpd.read_file("../Data/시각화/대구_행정동/대구_행정동_군위포함.shp")
 print(gdf.crs)
 gdf = gdf.to_crs(epsg=4326)
-gdf.to_file("../Data/대구_행정동_군위포함.geojson", driver="GeoJSON")
+# gdf.to_file("../Data/대구_행정동_군위포함.geojson", driver="GeoJSON")
 
 import json
-with open("../Data/대구_행정동_군위포함.geojson", encoding='utf-8') as f:
+with open("../Data/시각화/대구_행정동/대구_행정동_군위포함.geojson", encoding='utf-8') as f:
  geojson_data = json.load(f)
 # print(geojson_data.keys())
 # print(geojson_data['features'][0]['properties'])
@@ -132,13 +132,13 @@ g1_by_gu.rename(columns={'군·구': 'SIGUNGU_NM', '고령자_비율': '고령�
 
 
 import geopandas as gpd
-gdf2 = gpd.read_file("../Data/대구광역시_시군구_군위포함.shp")
+gdf2 = gpd.read_file("../Data/시각화/대구_시군구_군위포함/대구광역시_시군구_군위포함.shp")
 print(gdf2.crs)
 gdf2 = gdf2.to_crs(epsg=4326)
-gdf2.to_file("../Data/대구_시군구_군위포함.geojson", driver="GeoJSON")
+# gdf2.to_file("../Data/대구_시군구_군위포함.geojson", driver="GeoJSON")
 
 import json
-with open("../Data/대구_시군구_군위포함.geojson", encoding='utf-8') as f:
+with open("../Data/시각화/대구_시군구_군위포함/대구_시군구_군위포함.geojson", encoding='utf-8') as f:
  geojson_data2 = json.load(f)
 print(geojson_data2.keys())
 
