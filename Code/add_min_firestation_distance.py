@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 
 # 데이터 불러오기
-df_building = pd.read_csv('../Data/건축물대장_통합.csv')
-df_hydrant = pd.read_csv('../Data/대구_소방장치_위치.csv')
-df_firestation = pd.read_csv('../Data/대구_소방서_위치.csv')
+df_building = pd.read_csv('../Data/건축물대장_v0.2.csv')
+df_hydrant = pd.read_csv('../Data/대구광역시_소방장치_위치.csv')
+df_firestation = pd.read_csv('../Data/대구광역시_소방서_위치.csv')
 
 # 거리계산 함수 정의
 def haversine_min_distance(lat1, lon1, hy_lats, hy_lons):
@@ -37,4 +37,4 @@ df_building["소방서거리"] = df_building.apply(
 )
 
 # 결과 저장
-df_building.to_csv('../Data/건축물대장_소화전_소방서거리.csv', index=False)
+df_building.to_csv('../Data/건축물대장_v0.3.csv', index=False)

@@ -397,7 +397,7 @@ def hydrant_distance_score(dist_m, cap_over_max=True, invalid_to_nan=True):
     return scores
 
 # 점수 산정
-df = pd.read_csv("../Data/건축물대장_소화전_소방서거리.csv")
+df = pd.read_csv("../Data/건축물대장_v0.4.csv")
 df["건물노후도점수"] = df["사용승인년도"].apply(aging_score)
 df["지상층수점수"] = df["지상층수"].apply(aboveground_floors_score)
 df["지하층수점수"] = df["지하층수"].apply(basement_floors_score)
@@ -408,4 +408,4 @@ df["소방서거리점수"] = df["소방서거리"].apply(firestation_distance_s
 df["소화전거리점수"] = df["소화전거리"].apply(hydrant_distance_score)
 df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"] + df["소방서거리점수"] + df["소화전거리점수"]
 
-df.to_csv("../Data/건축물대장_통합_점수.csv")
+df.to_csv("../Data/건축물대장_v0.5.csv")

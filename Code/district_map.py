@@ -4,7 +4,7 @@ import geopandas as gpd
 from shapely.geometry import Point
 
 gdf_admin = gpd.read_file('../Data/시각화/대구_행정동/대구_행정동_군위포함.shp')
-df_buildings = pd.read_csv('../Data/건축물대장_통합_점수.csv')
+df_buildings = pd.read_csv('../Data/건축물대장_v0.3.csv')
 
 geometry = [Point(xy) for xy in zip(df_buildings['경도'], df_buildings['위도'])]
 gdf_buildings = gpd.GeoDataFrame(df_buildings, geometry=geometry, crs='EPSG:4326')
@@ -16,7 +16,7 @@ if gdf_admin.crs != gdf_buildings.crs:
     gdf_admin = gdf_admin.to_crs(gdf_buildings.crs)
 
 gdf_result = gpd.sjoin(gdf_buildings, gdf_admin, how='left', predicate='within')
-gdf_result.to_csv('건축물대장_동추가.csv', index=False)
+gdf_result.to_csv('../Data/건축물대장_v0.4.csv', index=False)
 
 # 건물 공간 분포 시각화
 import geopandas as gpd
