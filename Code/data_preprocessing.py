@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import re
 
-df_building_original = pd.read_csv("../Data/건축물대장_통합.csv")
+df_building_original = pd.read_csv("../Data/건축물대장_v0.1.csv")
 
 # 결측치 확인
 df_building_original["대지위치"].isna().sum()
@@ -117,3 +117,7 @@ by_gu_gun = (
 by_gu_gun
 
 df_building_original = df_building_original.dropna(subset=["구조코드명"])
+
+# 결측치 제거
+df_building_original = df_building_original.dropna()
+df_building_original.to_csv("../Data/건축물대장_v0.2.csv", index=False, encoding="utf-8-sig")

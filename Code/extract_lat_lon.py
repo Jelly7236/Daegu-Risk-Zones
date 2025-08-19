@@ -129,4 +129,4 @@ for file in files:
 merged_df = pd.concat(dfs, ignore_index=True)
 
 # 저장
-merged_df.to_csv("../Data/건축물대장_통합.csv", index=False, encoding="utf-8-sig")
+merged_df.to_csv("../Data/건축물대장_v0.1.csv", index=False, encoding="utf-8-sig")
