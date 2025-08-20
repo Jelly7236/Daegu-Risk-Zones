@@ -16,575 +16,9 @@ jupyter: python3
 lang: ko
 ---
 
-## 1) 코드
+## 시각화
 
-
-### 데이터 확인 1: 결측치 전체 확인
-
-```{python}
-import pandas as pd
-import numpy as np
-
-df_building_original = pd.read_csv("./Data/건축물대장_통합.csv")
-
-# 주요 컬럼별 결측치 개수 확인
-print("대지위치 결측:", df_building_original["대지위치"].isna().sum())
-print("지상층수 결측:", df_building_original["지상층수"].isna().sum())
-print("높이(m) 결측:", df_building_original["높이(m)"].isna().sum())
-print("구조코드명 결측:", df_building_original["구조코드명"].isna().sum())
-print("기타구조 결측:", df_building_original["기타구조"].isna().sum())
-print("사용승인년도 결측:", df_building_original["사용승인년도"].isna().sum())
-print("위도 결측:", df_building_original["위도"].isna().sum())
-print("경도 결측:", df_building_original["경도"].isna().sum())
-print("위도/경도 모두 결측:", (df_building_original["위도"].isna() & df_building_original["경도"].isna()).sum())
-```
-
-
-### 데이터 확인 2-1: 위경도 결측치 중 구조코드명별 퍼센트
-
-```{python}
-# 위경도 결측치 중 구조코드명별 퍼센트
-df_building_filter = df_building_original.loc[df_building_original["위도"].isna() & df_building_original["경도"].isna(), :]
-
-df_building_grouped = (
-    df_building_filter.groupby('구조코드명', dropna=False)
-    .size()
-    .rename('수')
-    .reset_index()
-)
-df_building_grouped['퍼센트'] = (df_building_grouped['수'] / len(df_building_filter) * 100).round(2)
-df_building_grouped = df_building_grouped.sort_values(['수','구조코드명'], ascending=[False, True], ignore_index=True)
-df_building_grouped
-```
-
-### 데이터 확인 2-2: 위경도 결측치 중 일반목구조 비율
-
-```{python}
-# 위경도 결측치 중 일반목구조가 전체 일반목구조에 어느정도 해당하는지
-original_wooden_structure = ((df_building_original["구조코드명"] == "일반목구조") & (df_building_original["위도"].notna())).sum()
-filter_wooden_structure = df_building_grouped.loc[df_building_grouped["구조코드명"] == "일반목구조", "수"].values[0]
-(filter_wooden_structure / original_wooden_structure * 100).round(2)
-```
-
-### 위도 경도 컬럼 추가
-
-```{python}
-#| eval: false
-import os
-import time
-import json
-import requests
-import pandas as pd
-
-# 기본 설정
-KAKAO_REST_KEY = "f939970b0ab002e6aa011535f5388344"
-KAKAO_URL = "https://dapi.kakao.com/v2/local/search/address.json"
-HEADERS = {"Authorization": f"KakaoAK {KAKAO_REST_KEY}"}
-REQUEST_INTERVAL = 0.15
-CACHE_PATH = "./kakao_geocode_cache.json"
-
-
-# 캐시 로드/세이브
-def load_cache(path=CACHE_PATH):
-    if os.path.exists(path):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
-
-def save_cache(cache, path=CACHE_PATH):
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False)
-    except:
-        pass
-
-cache = load_cache()
-
-# 카카오 지오코딩 함수
-def kakao_geocode(address):
-    if not isinstance(address, str) or not address.strip():
-        return None
-
-    addr = address.strip()
-    if addr in cache:
-        return cache[addr]
-
-    params = {"query": addr}
-    try:
-        r = requests.get(KAKAO_URL, headers=HEADERS, params=params, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            docs = data.get("documents", [])
-            if docs:
-                d0 = docs[0]
-                lon, lat = float(d0["x"]), float(d0["y"])
-                result = {"lat": lat, "lon": lon}
-            else:
-                result = None
-        else:
-            result = None
-    except:
-        result = None
-
-    cache[addr] = result
-    save_cache(cache)
-    time.sleep(REQUEST_INTERVAL)
-    return result
-
-# CSV 불러오기
-df_building_original = pd.read_csv(
-    "../Raw Data/건축물대장/건축물대장_대구광역시_종합.csv",
-    sep=None, engine="python"
-)
-
-df_building_filter = df_building_original[[
-    "대지위치", "지상층수", "지하층수", "높이(m)", "구조코드명", "기타구조", "주용도코드명", "비상용승강기수"
-]].copy()
-
-df_building_filter["사용승인년도"] = df_building_original["사용승인일"].astype(str).str.slice(0, 4)
-
-# 1만개씩 나누기
-df_building_temp = df_building_filter.loc[:10000, :].copy()
-
-# 좌표 변환 적용
-df_building_temp["위도"] = None
-df_building_temp["경도"] = None
-
-for i, addr in enumerate(df_building_temp["대지위치"].dropna().unique(), 1):
-    geo = kakao_geocode(addr)
-    if geo:
-        df_building_temp.loc[df_building_temp["대지위치"] == addr, "위도"] = geo["lat"]
-        df_building_temp.loc[df_building_temp["대지위치"] == addr, "경도"] = geo["lon"]
-    if i % 500 == 0:
-        print(f"{i} / {len(df_building_temp['대지위치'].dropna().unique)} 처리 완료")
-
-# 저장
-df_building_temp.to_csv(
-    "../Raw Data/건축물대장_위도경도포함/1.csv",
-    index=False, encoding="utf-8-sig"
-)
-print("저장 완료")
-
-# 파일 합치기
-files = [
-    "../Raw Data/건축물대장_위도경도포함/건축물2_좌표.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_1.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_2.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_3.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_4.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_5.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_6.csv",
-    "../Raw Data/건축물대장_위도경도포함/대구_건축물대장_2(6~80000).csv",
-    "../Raw Data/건축물대장_위도경도포함/대구_건축물대장_all.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장(30000~49999).csv"
-]
-
-# 뽑을 컬럼 목록
-columns_to_keep = [
-    "대지위치", "지상층수", "지하층수", "높이(m)", "구조코드명", "기타구조",
-    "주용도코드명", "비상용승강기수", "사용승인년도", "위도", "경도"
-]
-
-dfs = []
-
-for file in files:
-    df = pd.read_csv(file, encoding="utf-8")
-    
-    existing_cols = [col for col in columns_to_keep if col in df.columns]
-    df = df[existing_cols]
-    
-    dfs.append(df)
-
-merged_df = pd.concat(dfs, ignore_index=True)
-
-# 저장
-merged_df.to_csv("./Data/건축물대장_통합.csv", index=False, encoding="utf-8-sig")
-```
-
-
-### 소화전/소방서 최소거리 컬럼 추가
-
-```{python}
-#| eval: false
-import pandas as pd
-import numpy as np
-
-# 데이터 불러오기
-df_building = pd.read_csv('./Data/건축물대장_통합.csv')
-df_hydrant = pd.read_csv('./Data/대구_소방장치_위치.csv')
-df_firestation = pd.read_csv('./Data/대구_소방서_위치.csv')
-
-# 거리계산 함수 정의
-def haversine_min_distance(lat1, lon1, hy_lats, hy_lons):
-    R = 6371000  # 지구 반지름 (m)
-    lat1 = np.radians(lat1)
-    lon1 = np.radians(lon1)
-    dlat = hy_lats - lat1
-    dlon = hy_lons - lon1
-    a = np.sin(dlat / 2)**2 + np.cos(lat1) * np.cos(hy_lats) * np.sin(dlon / 2)**2
-    c = 2 * np.arcsin(np.sqrt(a))
-    distances = R * c
-    return distances.min()
-
-# 위경도 라디안화
-hydrant_lats = np.radians(df_hydrant["위도"].values)
-hydrant_lons = np.radians(df_hydrant["경도"].values)
-station_lats = np.radians(df_firestation["위도"].values)
-station_lons = np.radians(df_firestation["경도"].values)
-
-# 소화전거리 계산 및 추가
-df_building['소화전거리'] = df_building.apply(
-    lambda row: haversine_min_distance(row["위도"], row["경도"], hydrant_lats, hydrant_lons),
-    axis=1
-)
-# 소방서거리 계산 및 추가
-df_building["소방서거리"] = df_building.apply(
-    lambda row: haversine_min_distance(row["위도"], row["경도"], station_lats, station_lons),
-    axis=1
-)
-
-# 결과 저장
-df_building.to_csv('./Data/건축물대장_소화전_소방서거리.csv', index=False)
-```
-
-### 건축물 종합 점수 산정
-
-```{python}
-#| eval: false
-from datetime import date
-import math, re
-import numpy as np
-import pandas as pd
-
-def _parse_year(value):
-    if value is None:
-        return None
-    if isinstance(value, float) and math.isnan(value):
-        return None
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float):
-        return int(value)
-    s = str(value).strip()
-    if s == "":
-        return None
-    s_num = s.replace(",", "")
-    if re.fullmatch(r"[+-]?\d+(\.\d+)?", s_num):
-        try:
-            return int(float(s_num))
-        except Exception:
-            return None
-    m = re.search(r"(\d{4})", s)
-    if m:
-        return int(m.group(1))
-    return None
-
-def aging_score(value):
-    year = _parse_year(value)
-    if year is None:
-        return 0
-    current_year = date.today().year
-    age = current_year - year
-    if age < 0 or year < 1800:
-        return 0
-    if age >= 40:
-        return 5
-    elif age >= 30:
-        return 4
-    elif age >= 20:
-        return 3
-    elif age >= 10:
-        return 2
-    elif age >= 0:
-        return 1
-    else:
-        return 0
-
-def _parse_floor_count(value):
-    if value is None:
-        return None
-    if isinstance(value, float) and math.isnan(value):
-        return None
-    if isinstance(value, (int, float)):
-        n = int(float(value))
-        return n if n >= 0 else None
-    s = str(value).strip()
-    if s == "":
-        return None
-    s_num = s.replace(",", "")
-    if re.fullmatch(r"[+-]?\d+(\.\d+)?", s_num):
-        try:
-            n = int(float(s_num))
-            return n if n >= 0 else None
-        except Exception:
-            return None
-    m = re.search(r"(-?\d+)", s)
-    if m:
-        n = int(m.group(1))
-        return n if n >= 0 else None
-    return None
-
-def aboveground_floors_score(value):
-    floors = _parse_floor_count(value)
-    if floors is None:
-        return 0
-    if floors >= 30:
-        return 5
-    elif floors >= 20:
-        return 4
-    elif floors >= 10:
-        return 3
-    elif floors >= 5:
-        return 2
-    elif floors >= 1:
-        return 1
-    else:
-        return 0
-
-def _parse_basement_floor_count(value):
-    if value is None:
-        return None
-    if isinstance(value, float) and math.isnan(value):
-        return None
-    if isinstance(value, (int, float)):
-        try:
-            n = int(float(value))
-            return abs(n) if n != 0 else 0
-        except Exception:
-            return None
-    s = str(value).strip()
-    if s == "":
-        return None
-    m = re.fullmatch(r"[Bb]\s*(\d+)\s*[Ff]?", s)
-    if m:
-        return int(m.group(1))
-    m = re.search(r"지하\s*(\d+)", s)
-    if m:
-        return int(m.group(1))
-    m = re.search(r"(-?\d+)", s.replace(",", ""))
-    if m:
-        try:
-            return abs(int(m.group(1)))
-        except Exception:
-            return None
-    return None
-
-def basement_floors_score(value):
-    floors = _parse_basement_floor_count(value)
-    if floors is None:
-        return 0
-    if floors >= 3:
-        return 3
-    elif floors >= 2:
-        return 2
-    elif floors >= 1:
-        return 1
-    else:
-        return 0
-
-MAIN_USE_SCORE_MAP = {
-    '숙박시설': 9.0,
-    '야영장시설': 9.0,
-    '관광휴게시설': 9.0,
-    '공장': 8.0,
-    '창고시설': 8.0,
-    '노유자시설': 7.0,
-    '교육연구시설': 7.0,
-    '교육연구및복지시설': 7.0,
-    '의료시설': 7.0,
-    '수련시설': 7.0,
-    '제2종근린생활시설': 5.0,
-    '근린생활시설': 5.0,
-    '제1종근린생활시설': 5.0,
-    '종교시설': 5.0,
-    '문화및집회시설': 5.0,
-    '운동시설': 5.0,
-    '업무시설': 5.0,
-    '판매시설': 5.0,
-    '위락시설': 5.0,
-    '판매및영업시설': 5.0,
-    '기타제1종근린생활시설': 5.0,
-    '생활편익시설': 5.0,
-    '소매점': 5.0,
-    '동물및식물관련시설': 4.0,
-    '위험물저장및처리시설': 4.0,
-    '자원순환관련시설': 4.0,
-    '분뇨.쓰레기처리시설': 4.0,
-    '방송통신시설': 4.0,
-    '자동차관련시설': 4.0,
-    '장례시설': 4.0,
-    '운수시설': 4.0,
-    '교정및군사시설': 4.0,
-    '국방,군사시설': 4.0,
-    '발전시설': 4.0,
-    '묘지관련시설': 4.0,
-    '단독주택': 2.0,
-    '공동주택': 2.0,
-    '다가구주택': 2.0,
-    '공공용시설': 1.0,
-}
-
-def main_use_score_exact(value) -> float:
-    if value is None:
-        return 0.0
-    if isinstance(value, float) and math.isnan(value):
-        return 0.0
-    s = str(value).strip()
-    if s == "" or s.lower() == "nan":
-        return 0.0
-    return MAIN_USE_SCORE_MAP.get(s, 0.0)
-
-STRUCTURE_SCORE_MAP = {
-    '철근콘크리트구조': 0.0,
-    '콘크리트구조': 0.0,
-    '프리케스트콘크리트구조': 0.0,
-    '보강콘크리트조': 0.0,
-    '기타콘크리트구조': 0.0,
-    '라멘조': 0.0,
-    '일반철골구조': 2.0,
-    '경량철골구조': 2.0,
-    '강파이프구조': 2.0,
-    '철파이프조': 2.0,
-    '기타강구조': 2.0,
-    '스틸하우스조': 2.0,
-    '단일형강구조': 2.0,
-    '철골구조': 2.0,
-    '공업화박판강구조(PEB)': 2.0,
-    '트러스구조': 2.0,
-    '철골콘크리트구조': 2.0,
-    '철골철근콘크리트구조': 2.0,
-    '철골철근콘크리트합성구조': 2.0,
-    '기타철골철근콘크리트구조': 2.0,
-    '일반목구조': 5.0,
-    '목구조': 5.0,
-    '통나무구조': 5.0,
-    '트러스목구조': 5.0,
-    '벽돌구조': 4.0,
-    '블록구조': 4.0,
-    '시멘트블럭조': 4.0,
-    '조적구조': 4.0,
-    '기타조적구조': 4.0,
-    '석구조': 4.0,
-    '흙벽돌조': 4.0,
-    '조립식판넬조': 3.0,
-    '컨테이너조': 3.0,
-    '막구조': 1.0,
-    '기타구조': 1.0,
-}
-
-def structure_score(value) -> float:
-    if value is None:
-        return 0.0
-    if isinstance(value, float) and math.isnan(value):
-        return 0.0
-    s = str(value).strip()
-    if not s or s.lower() == "nan":
-        return 0.0
-    if s in STRUCTURE_SCORE_MAP:
-        return STRUCTURE_SCORE_MAP[s]
-    if ('목' in s) or ('통나무' in s):
-        return 5.0
-    if ('조적' in s) or ('벽돌' in s) or ('블록' in s) or ('석' in s):
-        return 4.0
-    if ('조립' in s) or ('판넬' in s) or ('컨테이너' in s):
-        return 3.0
-    if ('철골' in s) or ('강구조' in s) or ('스틸' in s) or ('파이프' in s):
-        return 2.0
-    if ('막' in s) or ('특수' in s):
-        return 1.0
-    if ('콘크리트' in s) or ('라멘' in s):
-        return 0.0
-    return 0.0
-
-def _parse_nonneg_int_count(value):
-    if value is None:
-        return None
-    if isinstance(value, float) and math.isnan(value):
-        return None
-    if isinstance(value, (int, float)):
-        n = int(float(value))
-        return n if n >= 0 else None
-    s = str(value).strip()
-    if s == "" or s.lower() == "nan":
-        return None
-    m = re.search(r"(\d+)", s.replace(",", ""))
-    if m:
-        n = int(m.group(1))
-        return n if n >= 0 else None
-    return None
-
-def emergency_elevator_score(value) -> float:
-    n = _parse_nonneg_int_count(value)
-    if n is None:
-        return 0.0
-    if n == 0:
-        return 5.0
-    elif n == 1:
-        return 4.0
-    elif n == 2:
-        return 3.0
-    elif n == 3:
-        return 2.0
-    elif n == 4:
-        return 1.0
-    else:
-        return 0.0
-    
-def firestation_distance_score(dist_m, cap_over_max=True, invalid_to_nan=True):
-    arr = np.asarray(dist_m, dtype=float)
-    if invalid_to_nan:
-        arr = np.where(arr < 0, np.nan, arr)
-    default_val = 5.0 if cap_over_max else np.nan
-    scores = np.select(
-        [arr < 1000, arr < 3000, arr < 5000, arr < 7000, arr < 9000],
-        [1.0,        2.0,        3.0,        4.0,        5.0],
-        default=default_val
-    )
-    if np.isscalar(dist_m):
-        return float(scores.item())
-    if isinstance(dist_m, pd.Series):
-        return pd.Series(scores, index=dist_m.index, name=getattr(dist_m, "name", None))
-    return scores
-
-def hydrant_distance_score(dist_m, cap_over_max=True, invalid_to_nan=True):
-    arr = np.asarray(dist_m, dtype=float)
-    if invalid_to_nan:
-        arr = np.where(arr < 0, np.nan, arr)
-    default_val = 5.0 if cap_over_max else np.nan
-    scores = np.select(
-        [arr <= 30, arr <= 60, arr <= 90, arr <= 120, arr <= 150],
-        [1.0,       2.0,       3.0,       4.0,        5.0],
-        default=default_val
-    )
-    scores = np.where(np.isnan(arr), np.nan, scores)
-    if np.isscalar(dist_m):
-        return float(np.asarray(scores).item())
-    if isinstance(dist_m, pd.Series):
-        return pd.Series(scores, index=dist_m.index, name=getattr(dist_m, "name", None))
-    return scores
-
-# 점수 산정
-df = pd.read_csv("./Data/건축물대장_소화전_소방서거리.csv")
-df["건물노후도점수"] = df["사용승인년도"].apply(aging_score)
-df["지상층수점수"] = df["지상층수"].apply(aboveground_floors_score)
-df["지하층수점수"] = df["지하층수"].apply(basement_floors_score)
-df["주용도점수"] = df["주용도코드명"].apply(main_use_score_exact)
-df["구조점수"] = df["구조코드명"].apply(structure_score)
-df["비상용승강기점수"] = df["비상용승강기수"].apply(emergency_elevator_score)
-df["소방서거리점수"] = df["소방서거리"].apply(firestation_distance_score)
-df["소화전거리점수"] = df["소화전거리"].apply(hydrant_distance_score)
-df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"] + df["소방서거리점수"] + df["소화전거리점수"]
-
-df.to_csv("./Data/건축물대장_통합_점수.csv")
-```
-
-## 2) 시각화
-
-### 119안전센터 및 소화장치 위치 시각화
-
+### 119안전센터 및 소방용수시설 위치 시각화
 ```{python}
 # 대구광역시 119안전센터 및 소화장치 위치 시각화
 
@@ -600,8 +34,8 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-loc_119 = pd.read_csv("./Data/대구_소방서_위치.csv")
-loc_fire = pd.read_csv("./Data/대구_소방장치_위치.csv")
+loc_119 = pd.read_csv("./Data/대구광역시_소방서_위치.csv")
+loc_fire = pd.read_csv("./Data/대구광역시_용수시설_위치.csv")
 
 
 
@@ -612,14 +46,19 @@ with open ("./Data/시각화/대구_시군구_군위포함/대구_시군구_군�
     geojson_data = json.load(f)
 # print(geojson_data.keys())
 
-# 구별 소방 안전센터 scatter_mapbox
-fig = px.scatter_mapbox(
-    loc_119, lat="위도", lon="경도", color="구이름",
-    hover_name="119안전센터명",
-    hover_data={"위도": False, "경도": False, "구이름": True, "동이름": True},
-    zoom=11,
-    height=650,
-)
+import plotly.graph_objects as go
+
+fig = go.Figure()
+# 119안전센터(빨간점)
+fig.add_trace(go.Scattermapbox(
+    lat=loc_119["위도"],
+    lon=loc_119["경도"],
+    mode="markers",
+    marker=go.scattermapbox.Marker(size=15, color="red"),
+    name="119안전센터",  # 범례에 표시됨
+    hovertemplate="<b>구:</b> %{customdata[0]}<br><b>동:</b> %{customdata[1]}<extra></extra>",
+    customdata=loc_119[["구이름", "동이름"]].values,
+))
 fig.update_traces(marker=dict(size=15))
 
 # 구별 소방 긴급구조 비상 소화장치 scatter mapbox
@@ -627,10 +66,10 @@ fig.add_trace(go.Scattermapbox(
     lat=loc_fire["위도"],
     lon=loc_fire["경도"],
     mode="markers",
-    marker=go.scattermapbox.Marker(size=5, color="blue"),
+    marker=go.scattermapbox.Marker(size=3, color="blue"),
     name="소화장치",
     hovertemplate="<b>구:</b> %{customdata[0]}<br><b>동:</b> %{customdata[1]}<extra></extra>",
-    customdata=loc_fire[["구이름", "동이름"]].values,
+    customdata=loc_fire["소재지지번주소"].values,
 ))
 
 fig.update_layout(
@@ -645,6 +84,8 @@ fig.update_layout(
         }
     ],
     mapbox_center={"lat": 35.8714, "lon": 128.6014},
+    # zoom 값을 높이면 더 '줌인'됩니다. 지역에 따라 10~12 정도가 적당합니다.
+    mapbox_zoom=11,
     margin={"r":0, "t":30, "l":0, "b":0},
 )
 fig.show()
@@ -652,15 +93,15 @@ fig.show()
 ```
 
 
-### 소방서, 소화전 거리 분포 시각화
+### 소방서, 소방용수시설 거리 분포 시각화
 ```{python}
 # %% 라이브러리 호출
 import pandas as pd
 import numpy as np
 import plotly.express as px
 # %% 데이터 로드
-df = pd.read_csv('./Data/건축물대장_통합_점수.csv')
-hyd = pd.read_csv('./Raw Data/대구광역시_소화장치_위치데이터.csv')
+df = pd.read_csv('./Data/건축물대장_v0.5.csv')
+hyd = pd.read_csv('./Data/대구광역시_용수시설_위치.csv')
 #firestn = pd.read_csv('대구광역시_소방서_위치데이터.csv', encoding='cp949')
 # %%
 hydrant_lats = np.radians(hyd["위도"].values)
@@ -678,14 +119,14 @@ def haversine_min_distance(lat1, lon1, hy_lats, hy_lons):
     distances = R * c
     return distances.min()
 # %% min({소화전거리(m)})
-df['소화전거리'] = df.apply(
+df['소방용수시설거리'] = df.apply(
     lambda row: haversine_min_distance(row["위도"], row["경도"], hydrant_lats, hydrant_lons),
     axis=1
 )
 # %%
-df['소화전거리'].head()
+df['소방용수시설거리'].head()
 # %% 소방서 데이터
-firestation = pd.read_csv('./Data/대구_소방서_위치.csv')
+firestation = pd.read_csv('./Data/대구광역시_소방서_위치.csv')
 firestation.head()
 # %% min({소방서거리(m)})
 station_lats = np.radians(firestation["위도"].values)
@@ -709,7 +150,7 @@ fig1.update_layout(
 fig1.show()
 
 # 소화전거리 분포
-fig2 = px.histogram(df, x="소화전거리", nbins=100, title="가장 가까운 소화전 거리 분포", marginal="box")
+fig2 = px.histogram(df, x="소방용수시설거리", nbins=100, title="가장 가까운 소방용수시설 거리 분포", marginal="box")
 fig2.update_layout(
     bargap=0.1,
     xaxis_title="거리(m)",
@@ -723,7 +164,6 @@ fig2.show()
 
 
 ### 노령 인구 시각화
-
 ```{python}
 #======================================
 # 노령 인구 비율 시각화
@@ -824,7 +264,6 @@ fig.show()
 
 
 ### 건축물대장 시각화
-
 ```{python}
 # %% 라이브러리 호출
 import numpy as np
@@ -1154,7 +593,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-df = pd.read_csv('./Data/건축물대장_동추가.csv')
+df = pd.read_csv('./Data/건축물대장_v0.5.csv')
 
 plt.rcParams['font.family'] = 'Malgun Gothic'
 plt.rcParams['axes.unicode_minus'] = False
@@ -1166,4 +605,201 @@ plt.title("종합점수 분포", fontsize=16)
 plt.xlabel("종합점수", fontsize=12)
 plt.ylabel("건물 수", fontsize=12)
 plt.show()
+```
+
+### 동별 종합점수 q1q3 바깥값 시각화
+```{python}
+# -*- coding: utf-8 -*-
+import csv, json, re
+import numpy as np
+import pandas as pd
+import plotly.express as px
+from pathlib import Path
+
+# ================== 경로 ==================
+csv_path = Path("./Data/건축물대장_v0.5.csv")
+geojson_path = Path("./Data/시각화/대구_행정동/대구_행정동_군위포함.geojson")
+# ========================================
+
+# ========== 1) CSV 로드 (구분자 자동 감지) ==========
+with open(csv_path, "r", encoding="utf-8", errors="ignore") as f:
+    sample = "".join([next(f) for _ in range(50)])
+dialect = csv.Sniffer().sniff(sample, delimiters=[",", "\t", ";", "|"])
+sep = dialect.delimiter
+
+df = pd.read_csv(csv_path, sep=sep, engine="python", encoding="utf-8")
+
+with open(geojson_path, "r", encoding="utf-8") as f:
+    gj = json.load(f)
+
+# 점수 숫자화
+score_col = "종합점수"
+if score_col not in df.columns:
+    raise RuntimeError("CSV에 '종합점수' 컬럼이 없습니다.")
+df[score_col] = pd.to_numeric(df[score_col], errors="coerce")
+
+# ========== 2) 이름 정규화 및 _key 심기 ==========
+def norm_name(x):
+    if pd.isna(x): return None
+    s = str(x)
+    s = re.sub(r"\s+", "", s)          # 공백 제거
+    s = re.sub(r"[(){}\[\]-]", "", s)  # 괄호/하이픈 제거
+    s = s.replace("ㆍ", "")
+    return s
+
+CSV_KEY = "ADM_DR_NM"  # CSV 동명
+GJ_KEY  = "ADM_DR_NM"  # GeoJSON 동명 (파일에 맞게)
+
+if CSV_KEY not in df.columns:
+    raise RuntimeError(f"CSV에 '{CSV_KEY}' 컬럼이 없습니다.")
+if not gj.get("features"):
+    raise RuntimeError("GeoJSON features가 비어 있습니다.")
+
+df["_key"] = df[CSV_KEY].map(norm_name)
+for feat in gj["features"]:
+    props = feat.get("properties", {}) or {}
+    props["_key"] = norm_name(props.get(GJ_KEY))
+    feat["properties"] = props
+
+# (선택) 매칭 진단
+df_keys = set(df["_key"].dropna().unique())
+gj_keys = {feat["properties"].get("_key") for feat in gj["features"] if feat.get("properties")}
+print(f"[매칭진단] CSV만 있는 동 수: {len(df_keys - gj_keys)}, GeoJSON만 있는 동 수: {len(gj_keys - df_keys)}")
+
+# ========== 3) 동별 평균 계산 ==========
+# hover용 원본 동명 매핑
+name_map = (df[[CSV_KEY, "_key"]]
+            .dropna()
+            .drop_duplicates()
+            .groupby("_key")[CSV_KEY]
+            .first()
+            .reset_index()
+            .rename(columns={CSV_KEY: "행정동명"}))
+
+df_mean = (df.dropna(subset=["_key", score_col])
+             .groupby("_key", as_index=False)[score_col]
+             .mean()
+             .rename(columns={score_col: "동별_평균점수"}))
+
+df_mean = df_mean.merge(name_map, on="_key", how="left")
+
+# ========== 4) Q1/Q3 계산 (동별 평균 분포 기준) ==========
+Q1 = df_mean["동별_평균점수"].quantile(0.25)
+Q3 = df_mean["동별_평균점수"].quantile(0.75)
+print(f"[분위수] Q1={Q1:.4f}, Q3={Q3:.4f}")
+
+# 구간 라벨링: Q1 밖(녹), Q1~Q3(연회색), Q3 밖(빨)
+df_mean["구간"] = np.select(
+    [df_mean["동별_평균점수"] < Q1, df_mean["동별_평균점수"] > Q3],
+    ["Q1밖(낮음)", "Q3밖(높음)"],
+    default="Q1~Q3"
+)
+
+# ========== 5) Choropleth (세 구간 모두 색칠) ==========
+color_map = {
+    "Q1밖(낮음)": "#2ecc71",  # green
+    "Q1~Q3":     "#e0e0e0",  # light gray
+    "Q3밖(높음)": "#e74c3c",  # red
+}
+
+fig = px.choropleth_mapbox(
+    df_mean,                      # 전체(세 구간)
+    geojson=gj,
+    locations="_key",
+    featureidkey="properties._key",
+    color="구간",
+    color_discrete_map=color_map,
+    category_orders={"구간": ["Q1밖(낮음)", "Q1~Q3", "Q3밖(높음)"]},
+    hover_name="행정동명",
+    hover_data={"동별_평균점수":":.2f", "구간": True},
+    mapbox_style="open-street-map",
+    opacity=0.88,
+    center={"lat": 35.8714, "lon": 128.6014},  # 대구 중심 근처
+    zoom=9,
+)
+
+fig.update_layout(
+    margin=dict(l=0, r=0, t=40, b=0),
+    title=f"동별 평균 종합점수 Q1~Q3 포함 색칠 (Q1={Q1:.2f}, Q3={Q3:.2f})",
+    legend_title_text="구간"
+)
+
+fig.show()
+```
+
+### 동별 종합점수 평균 지도 시각화
+```{python}
+import json, re
+import pandas as pd
+import plotly.express as px
+from pathlib import Path
+import numpy as np
+
+# 경로
+csv_path = Path("./Data/건축물대장_v0.5.csv")
+geojson_path = Path("./Data/시각화/대구_행정동/대구_행정동_군위포함.geojson")
+
+# 1) 데이터 로드
+df = pd.read_csv(csv_path)
+df.loc[df["ADM_DR_NM"].isna(), "대지위치"]
+with open(geojson_path, "r", encoding="utf-8") as f:
+    gj = json.load(f)
+
+df["종합점수"] = pd.to_numeric(df["종합점수"], errors="coerce")
+
+# 2) 정규화 함수
+def norm_name(x):
+    if pd.isna(x): return None
+    s = str(x)
+    s = re.sub(r"\s+", "", s)
+    s = re.sub(r"[(){}\[\]-]", "", s)
+    s = s.replace("ㆍ", "")
+    return s
+
+# 3) 컬럼
+CSV_KEY = "ADM_DR_NM"   # CSV의 행정동명
+GJ_KEY  = "ADM_DR_NM"      # GeoJSON의 행정동명 (보통 소문자)
+
+# 4) 키 만들기 (정규화)
+df["_key"] = df[CSV_KEY].map(norm_name)
+for feat in gj["features"]:
+    props = feat.get("properties", {}) or {}
+    props["_key"] = norm_name(props.get(GJ_KEY))
+    feat["properties"] = props
+
+# 5) 동별 평균 계산
+df_avg = (
+    df.dropna(subset=["_key"])
+      .groupby("_key", as_index=False)["종합점수"]
+      .mean()
+      .rename(columns={"종합점수": "종합점수_평균"})
+)
+
+# 6) 색상 스케일 (하양→빨강)
+white_to_red = [
+    [0.0, "#ffffff"],
+    [1.0, "#ff0000"]
+]
+vmin = float(df_avg["종합점수_평균"].min())
+vmax = float(df_avg["종합점수_평균"].max())
+
+# 7) 시각화
+fig = px.choropleth_mapbox(
+    df_avg,
+    geojson=gj,
+    locations="_key",                   # DF의 키
+    featureidkey="properties._key",     # GeoJSON의 키
+    color="종합점수_평균",
+    color_continuous_scale=white_to_red,
+    range_color=(vmin, vmax),
+    mapbox_style="open-street-map",
+    opacity=0.75,
+    center={"lat": 35.8714, "lon": 128.6014},
+    zoom=9,
+    hover_name="_key",
+    hover_data={"종합점수_평균":":.2f"}
+)
+fig.update_layout(margin=dict(l=0,r=0,t=40,b=0), title="동별 점수평균 지도 시각화")
+fig.show()
+
 ```

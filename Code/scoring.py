@@ -405,7 +405,7 @@ df["주용도점수"] = df["주용도코드명"].apply(main_use_score_exact)
 df["구조점수"] = df["구조코드명"].apply(structure_score)
 df["비상용승강기점수"] = df["비상용승강기수"].apply(emergency_elevator_score)
 df["소방서거리점수"] = df["소방서거리"].apply(firestation_distance_score)
-df["소화전거리점수"] = df["소화전거리"].apply(hydrant_distance_score)
-df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"] + df["소방서거리점수"] + df["소화전거리점수"]
+df["소방용수시설거리점수"] = df["소방용수시설거리"].apply(hydrant_distance_score)
+df["종합점수"] = df["건물노후도점수"] + df["지상층수점수"] + df["지하층수점수"] + df["주용도점수"] + df["구조점수"] + df["비상용승강기점수"] + df["소방서거리점수"] + df["소방용수시설거리점수"]
 
 df.to_csv("../Data/건축물대장_v0.5.csv")

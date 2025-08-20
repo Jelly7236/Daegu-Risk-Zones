@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-df = pd.read_csv('../Data/건축물대장_동추가.csv')
+df = pd.read_csv('../Data/건축물대장_v0.5.csv')
 df.columns
 df.info()
 
