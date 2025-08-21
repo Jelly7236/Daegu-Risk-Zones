@@ -21,20 +21,12 @@ import geopandas as gpd
 gdf = gpd.read_file("../Data/시각화/대구_행정동/대구_행정동_군위포함.shp")
 print(gdf.crs)
 gdf = gdf.to_crs(epsg=4326)
-# gdf.to_file("../Data/대구_행정동_군위포함.geojson", driver="GeoJSON")
 
 import json
 with open("../Data/시각화/대구_행정동/대구_행정동_군위포함.geojson", encoding='utf-8') as f:
  geojson_data = json.load(f)
-# print(geojson_data.keys())
-# print(geojson_data['features'][0]['properties'])
 
-# gdf 파일에 유천동이 없고 g2_by_dong 파일에 유천동이 있어 행 삭제
-cond = (gdf['ADM_DR_CD'] == '유천동')
-gdf[cond]
 g2_by_dong.rename(columns={'동·읍·면': 'ADM_DR_NM'}, inplace=True)
-cond = (g2_by_dong['ADM_DR_NM'] == '유천동')
-g2_by_dong = g2_by_dong.drop(g2_by_dong[cond].index)
 
 # 불로봉무동 이름 변경
 g2_by_dong.loc[g2_by_dong['ADM_DR_NM'] == '불로봉무동', 'ADM_DR_NM'] = '불로·봉무동'

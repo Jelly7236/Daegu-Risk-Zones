@@ -5,9 +5,8 @@ from pathlib import Path
 import numpy as np
 
 # 경로
-csv_path = Path("../Data/건축물대장_v0.5.csv")
+csv_path = Path("../Data/건축물대장_v0.6.csv")
 geojson_path = Path("../Data/시각화/대구_행정동/대구_행정동_군위포함.geojson")
-out_html = Path("./대구_행정동_종합점수_평균.html")
 
 # 1) 데이터 로드
 df = pd.read_csv(csv_path)
@@ -27,7 +26,7 @@ def norm_name(x):
     return s
 
 # 3) 컬럼
-CSV_KEY = "ADM_DR_NM"   # CSV의 행정동명
+CSV_KEY = "ADM_DR_NM"   # CSV의 구군명
 GJ_KEY  = "ADM_DR_NM"      # GeoJSON의 행정동명 (보통 소문자)
 
 # 4) 키 만들기 (정규화)
@@ -70,5 +69,4 @@ fig = px.choropleth_mapbox(
     hover_data={"종합점수_평균":":.2f"}
 )
 fig.update_layout(margin=dict(l=0,r=0,t=40,b=0), title="동별 점수평균 지도 시각화")
-fig.write_html(out_html)
-print(f"[저장 완료] {out_html.resolve()}")
+fig.show()

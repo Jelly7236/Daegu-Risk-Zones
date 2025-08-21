@@ -1,10 +1,9 @@
-# %% 라이브러리 호출
 import pandas as pd
 import numpy as np
 import plotly.express as px
 # %% 데이터 로드
-df = pd.read_csv('../Data/건축물대장_통합_점수.csv')
-hyd = pd.read_csv('../Raw Data/대구광역시_소화장치_위치데이터.csv')
+df = pd.read_csv('../Data/건축물대장_v0.5.csv')
+hyd = pd.read_csv('../Data/대구광역시_용수시설_위치.csv')
 #firestn = pd.read_csv('대구광역시_소방서_위치데이터.csv', encoding='cp949')
 # %%
 hydrant_lats = np.radians(hyd["위도"].values)
@@ -22,14 +21,14 @@ def haversine_min_distance(lat1, lon1, hy_lats, hy_lons):
     distances = R * c
     return distances.min()
 # %% min({소화전거리(m)})
-df['소화전거리'] = df.apply(
+df['소방용수시설거리'] = df.apply(
     lambda row: haversine_min_distance(row["위도"], row["경도"], hydrant_lats, hydrant_lons),
     axis=1
 )
 # %%
-df['소화전거리'].head()
+df['소방용수시설거리'].head()
 # %% 소방서 데이터
-firestation = pd.read_csv('../Data/대구_소방서_위치.csv')
+firestation = pd.read_csv('../Data/대구광역시_소방서_위치.csv')
 firestation.head()
 # %% min({소방서거리(m)})
 station_lats = np.radians(firestation["위도"].values)
@@ -53,7 +52,7 @@ fig1.update_layout(
 fig1.show()
 
 # 소화전거리 분포
-fig2 = px.histogram(df, x="소화전거리", nbins=100, title="가장 가까운 소화전 거리 분포", marginal="box")
+fig2 = px.histogram(df, x="소방용수시설거리", nbins=100, title="가장 가까운 소방용수시설 거리 분포", marginal="box")
 fig2.update_layout(
     bargap=0.1,
     xaxis_title="거리(m)",

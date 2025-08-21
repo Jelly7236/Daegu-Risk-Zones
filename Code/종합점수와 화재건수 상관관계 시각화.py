@@ -107,3 +107,104 @@ for bar in bars:
                  ha='center', va='bottom', fontsize=10, color='black')
 
 plt.show()
+
+
+fire_df = pd.read_csv("../Raw Data/소방청_화재발생 정보.csv", encoding='cp949')
+daegu_building_df = pd.read_csv("../Data/건축물대장_v0.5.csv")
+
+# 전국 단위 (대구광역시 데이터 빼고) 
+kor_fire_count = fire_df.groupby('시도')[['화재유형']].count()
+kor_fire_count = kor_fire_count.reset_index()
+kor_fire_count
+
+kor_fire_count = kor_fire_count[kor_fire_count['시도'] != '대구광역시']
+kor_fire_count = kor_fire_count.reset_index(drop=True)
+result = kor_fire_count['화재유형'].sum() / len(g1)
+# print(round(result))
+
+# 대구  화재 데이터 추출
+cond1 = (fire_df['시도'] == '대구광역시')
+daegu_fire_df = fire_df[cond1]
+daegu_fire_df = daegu_fire_df[['화재발생년원일','시군구','화재유형','발화요인소분류','인명피해(명)소계','재산피해소계']]
+daegu_fire_df['화재발생년원일'] = pd.to_datetime(daegu_fire_df['화재발생년원일'])
+# daegu_fire_df = daegu_fire_df[daegu_fire_df['화재유형'] == '건축,구조물']
+# daegu_fire_df.info()
+
+
+# 대구광역시 건물수 추출
+daegu_building_df['시군구'] = daegu_building_df['대지위치'].str.split().str[1]
+buildings_counts = daegu_building_df.groupby('시군구')[['기타구조']].count()
+buildings_counts = buildings_counts.rename(columns={'기타구조': '건물수'})
+buildings_counts = buildings_counts.sort_values(by='건물수', ascending=False).reset_index()
+buildings_counts
+
+# 대구광역시 화재정보 & 건물 수 데이터프레임 merge
+merged_df = pd.merge(buildings_counts, daegu_fire_by_gu, on='시군구')
+merged_df['화재건수/건물수'] = merged_df['화재건수'] / merged_df['건물수'] * 1000
+merged_df = merged_df.sort_values(by='화재건수/건물수', ascending=False).reset_index(drop=True)
+merged_df
+
+# 건물 밀집 : 건물 수 / 면적
+population_df = pd.read_csv("C:\\Users\\USER\\Desktop\\대구\\Daegu-Risk-Zones\\Data\\동별인구.csv")
+population_df.columns
+new_population = population_df[['군·구', '동·읍·면','면적 (㎢)']]
+# new_population
+area_by_gu = new_population.groupby('군·구')[['면적 (㎢)']].sum().reset_index()
+# area_by_gu
+area_by_gu = area_by_gu.rename(columns={'군·구': '시군구'})
+area_by_gu
+
+merged_df = pd.merge(area_by_gu, merged_df, on='시군구')
+# merged_df['화재건수/건물수'] = merged_df['화재건수'] / merged_df['건물수'] * 1000
+# merged_df = merged_df.sort_values(by='화재건수/건물수', ascending=False).reset_index(drop=True)
+
+
+# 시군구별 화재건수/건물 수 비율 
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib import font_manager, rc
+# 한글 폰트 설정 (Windows 예시)
+font_path = "C:/Windows/Fonts/malgun.ttf"  # 맑은 고딕 폰트 경로
+font_name = font_manager.FontProperties(fname=font_path).get_name()
+rc('font', family=font_name)
+
+# 값 기준으로 내림차순 정렬
+merged_df = merged_df.sort_values(by='화재건수/건물수', ascending=False).reset_index(drop=True)
+
+# 색상 리스트 만들기: 상위 3개 진한 초록, 나머진 연한 초록
+colors = ['#006400' if i < 3 else '#90ee90' for i in range(len(merged_df))]
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x='시군구', y='화재건수/건물수', data=merged_df, palette=colors)
+plt.xlabel('시군구')
+plt.ylabel('화재건수/건물수')
+plt.title('시군구별 화재건수/건물수 비율 (상위 3개 강조)')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+
+# 건물 밀집도 계산
+merged_df['건물밀집도'] = merged_df['건물수'] / merged_df['면적 (㎢)']
+merged_df
+
+# 화재건수 / 건물 밀집도 계산
+merged_df['화재건수/건물밀집도'] = merged_df['화재건수'] / merged_df['건물밀집도']
+merged_df = merged_df.sort_values(by='화재건수/건물밀집도', ascending=False)
+merged_df
+
+merged_df = merged_df.sort_values(by='화재건수/건물밀집도', ascending=False).reset_index(drop=True)
+
+
+# 대구광역시 군구별 화재건수/건물밀집도 비율
+# 색상 리스트 만들기: 상위 3개 진한 초록, 나머진 연한 초록
+colors = ['#006400' if i < 3 else '#90ee90' for i in range(len(merged_df))]
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x='시군구', y='화재건수/건물밀집도', data=merged_df, palette=colors)
+plt.xlabel('시군구')
+plt.ylabel('화재건수/건물밀집도')
+plt.title('시군구별 화재건수/건물밀집도 비율 (상위 3개 강조)')
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
