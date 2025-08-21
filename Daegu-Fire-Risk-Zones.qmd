@@ -18,6 +18,119 @@ lang: ko
 
 ## 시각화
 
+### 화재건수 시각화
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+fire_df = pd.read_csv("./Raw Data/소방청_화재발생 정보.csv", encoding='cp949')
+
+# 대구광역시 추출
+cond1 = (fire_df['시도'] == '대구광역시')
+daegu_fire_df = fire_df[cond1]
+daegu_fire_df = daegu_fire_df[['화재발생년원일','시군구','화재유형','발화요인소분류','인명피해(명)소계','재산피해소계']]
+
+daegu_fire_df['화재발생년원일'] = pd.to_datetime(daegu_fire_df['화재발생년원일'])
+
+
+daegu_fire_by_type = daegu_fire_df.groupby('화재유형')[['시군구']].count().sort_values(by='시군구', ascending=False)
+daegu_fire_by_type = daegu_fire_by_type.reset_index()
+daegu_fire_by_type.rename(columns={'시군구': '화재건수'}, inplace=True)
+daegu_fire_by_type
+
+
+# 한글 폰트 설정 (윈도우 기준, mac은 'AppleGothic')
+plt.rc('font', family='Malgun Gothic')
+
+# 색상 지정: 건축,구조물만 진하게, 나머지는 연하게
+color_map = ['#C62828' if x == '건축,구조물' else '#FFCDD2' for x in daegu_fire_by_type['화재유형']]
+
+# 시각화
+plt.figure(figsize=(10, 6))
+sns.barplot(x='화재유형', y='화재건수', data=daegu_fire_by_type, palette=color_map)
+
+plt.title('화재 유형별 대구화재 건수')
+plt.xlabel('화재 유형')
+plt.ylabel('화재 건수')
+plt.xticks(rotation=0)
+
+for i, v in enumerate(daegu_fire_by_type['화재건수']):
+    try:
+        val = float(v)
+        plt.text(i, val + 50, str(v), ha='center', va='bottom', fontsize=12)
+    except (ValueError, TypeError):
+        # 숫자가 아니면 표시하지 않거나 0으로 처리
+        pass
+
+plt.tight_layout()
+plt.show()
+
+
+# 화재유형 건축,구조물 간추리고, 어디 구가 많은 화재가 일어나는지
+daegu_building_fire_df = daegu_fire_df[daegu_fire_df['화재유형'] == '건축,구조물']
+# daegu2
+daegu_building_fire_by_gu = daegu_building_fire_df.groupby('시군구')[['화재유형']].count().sort_values(by='화재유형', ascending=False)
+daegu_building_fire_by_gu = daegu_building_fire_by_gu.reset_index()
+daegu_building_fire_by_gu.rename(columns={'화재유형': '화재건수'}, inplace=True)
+
+
+daegu_population_df = pd.read_csv("./Data/동별인구.csv")
+new_daegu_population_df = daegu_population_df[['군·구','등록인구 (명)','인구밀도 (명/㎢)','면적 (㎢)']]
+new_by_gu = new_daegu_population_df.groupby('군·구').agg({
+    '등록인구 (명)': 'sum',
+    '인구밀도 (명/㎢)': 'mean',
+    '면적 (㎢)': 'sum'
+})
+new_by_gu = new_by_gu.reset_index().rename(columns={'군·구': '시군구'})
+new_by_gu
+
+# 병합
+merged = pd.merge(daegu_building_fire_by_gu,new_by_gu , how='left', on='시군구')
+merged['화재건수/등록인구 (명)'] = merged['화재건수']/merged['등록인구 (명)'] * 100
+merged['화재건수/인구밀도 (명/㎢)'] = merged['화재건수']/merged['인구밀도 (명/㎢)']
+merged['화재건수/면적 (㎢)'] = merged['화재건수']/merged['면적 (㎢)']
+
+
+merged =merged.sort_values(by='화재건수/인구밀도 (명/㎢)', ascending=False)
+merged
+
+
+#  인구밀도 대비 화재건수 발생 비율
+si_list = merged['시군구']
+values = merged['화재건수/인구밀도 (명/㎢)']
+
+x = np.arange(len(si_list))
+bar_width = 0.25
+
+# 색상 지정: 군위군, 달성군 진하게, 나머지 연하게
+colors = ['#AAAAAA'] * len(si_list)  # 모든 시군구 연한 회색
+for idx, name in enumerate(si_list):
+    if name in ['군위군', '달성군']:
+        colors[idx] = '#1976D2'  # 진한 파란색 (원하는 색으로 변경 가능)
+
+plt.figure(figsize=(14, 6))
+bars = plt.bar(x, values, color=colors, width=bar_width, label='비율')
+
+plt.xlabel('시군구')
+plt.ylabel('화재건수/인구밀도 (명/㎢)')
+plt.title('시군구별 인구밀도 대비 화재건수 비율 시각화')
+plt.xticks(x, si_list, rotation=45)
+plt.tight_layout()
+
+# 막대 위에 숫자 표기
+for bar in bars:
+    height = bar.get_height()
+    plt.annotate(f'{height:.3f}',
+                 xy=(bar.get_x() + bar.get_width() / 2, height),
+                 xytext=(0, 3), # 막대 위로 3pt 이동
+                 textcoords="offset points",
+                 ha='center', va='bottom', fontsize=10, color='black')
+
+plt.show()
+```
+
 ### 119안전센터 및 소방용수시설 위치 시각화
 ```{python}
 # 대구광역시 119안전센터 및 소화장치 위치 시각화
@@ -562,7 +675,14 @@ labels = ['0~10년', '10~20년', '20~30년', '30~40년', '40년 이상']
 filltered_year['연령대'] = pd.cut(filltered_year['연령'], bins=bins, labels=labels, right=False)
 
 # 2. 교차표 생성: 주용도그룹 × 연령대
+# cross_tab = pd.crosstab(filltered_year['주용도그룹'], filltered_year['연령대'])
 cross_tab = pd.crosstab(filltered_year['주용도그룹'], filltered_year['연령대'])
+
+# 0인 값이 모두 들어있는 열(연령대) 제거
+cross_tab = cross_tab.loc[:, (cross_tab != 0).any(axis=0)]
+
+# 0인 값이 모두 들어있는 행(주용도그룹) 제거
+cross_tab = cross_tab[(cross_tab != 0).any(axis=1)]
 
 # 3. Plotly로 교차 막대그래프 (그룹별 스택)
 fig7 = px.bar(
@@ -583,6 +703,262 @@ fig7.update_layout(
 
 fig7.show()
 # %%
+
+```
+
+### 노령 인구와 건물 노후화 상관관계
+```{python}
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from scipy.stats import pearsonr, spearmanr
+
+# 데이터 불러오기
+df_population = pd.read_csv("./Data/동별인구.csv")
+df_population_filter = df_population[['군·구', '동·읍·면', '고령자_비율','위도','경도']]
+
+df_building = pd.read_csv("./Data/건축물대장_v0.5.csv")
+
+# ==============================
+# 2) 동별 고령자 평균비율
+# ==============================
+df_pop = (
+    df_population_filter
+    .groupby(['군·구','동·읍·면'], as_index=False)['고령자_비율'].mean()
+    .rename(columns={'고령자_비율':'고령자_평균비율'})
+)
+
+# 행정동명 표준화(예외 처리)
+df_pop['행정동명'] = df_pop['동·읍·면'].replace({'불로봉무동':'불로·봉무동'})
+
+# ==============================
+# 3) 행정동별 평균 건물 노후도 점수
+# ==============================
+df_bld = (
+    df_building
+    .groupby('ADM_DR_NM', as_index=False)['건물노후도점수'].mean()
+    .rename(columns={'건물노후도점수':'평균건물노후도점수'})
+)
+
+# ==============================
+# 4) 병합
+# ==============================
+df_m = (
+    df_pop
+    .assign(ADM_DR_NM=df_pop['행정동명'])
+    .merge(df_bld, on='ADM_DR_NM', how='inner')
+)
+
+# 고령자 비율 퍼센트로 변환
+if df_m['고령자_평균비율'].max() <= 1.0:
+    df_m['고령자_평균비율(%)'] = df_m['고령자_평균비율'] * 100
+else:
+    df_m['고령자_평균비율(%)'] = df_m['고령자_평균비율']
+
+# ==============================
+# 5) 구/군별 상관계수 계산 함수
+# ==============================
+def safe_corr(x, y, method='pearson'):
+    x = pd.Series(x).astype(float)
+    y = pd.Series(y).astype(float)
+    mask = x.notna() & y.notna() & np.isfinite(x) & np.isfinite(y)
+    x, y = x[mask], y[mask]
+    if len(x) < 3 or x.nunique() < 2 or y.nunique() < 2:
+        return np.nan, np.nan, len(x)
+    if method == 'pearson':
+        r, p = pearsonr(x, y)
+    else:
+        r, p = spearmanr(x, y)
+    return r, p, len(x)
+
+rows = []
+for gugu, g in df_m.groupby('군·구', dropna=False):
+    r_p, p_p, n_p = safe_corr(g['평균건물노후도점수'], g['고령자_평균비율(%)'], 'pearson')
+    r_s, p_s, n_s = safe_corr(g['평균건물노후도점수'], g['고령자_평균비율(%)'], 'spearman')
+    rows.append({
+        '군·구': gugu,
+        'n': int(n_p),
+        'pearson_r': r_p,
+        'pearson_p': p_p,
+        'spearman_rho': r_s,
+        'spearman_p': p_s
+    })
+
+corr_df = pd.DataFrame(rows)
+
+# ==============================
+# 6) 피어슨 상관계수 시각화
+# ==============================
+corr_df_plot = corr_df.sort_values('pearson_r', na_position='last')
+
+fig_corr_p = px.bar(
+    corr_df_plot,
+    x='pearson_r',
+    y='군·구',
+    orientation='h',
+    color='pearson_r',
+    color_continuous_scale='RdBu',
+    range_color=(-1, 1),
+    labels={'pearson_r': '피어슨 상관계수 r', '군·구': '구/군'},
+    title='구/군별 상관계수 (피어슨) — 고령인구 비율 vs 평균 건물 노후도 점수'
+)
+fig_corr_p.add_vline(x=0, line_width=1, line_dash='dash', line_color='gray')
+fig_corr_p.update_layout(margin=dict(l=80, r=30, t=60, b=40))
+fig_corr_p.show()
+
+# ==============================
+# 7) 스피어만 상관계수 시각화
+# ==============================
+corr_df_plot_s = corr_df.sort_values('spearman_rho', na_position='last')
+
+fig_corr_s = px.bar(
+    corr_df_plot_s,
+    x='spearman_rho',
+    y='군·구',
+    orientation='h',
+    color='spearman_rho',
+    color_continuous_scale='RdBu',
+    range_color=(-1, 1),
+    labels={'spearman_rho': '스피어만 순위상관 ρ', '군·구': '구/군'},
+    title='구/군별 상관계수 (스피어만) — 고령인구 비율 vs 평균 건물 노후도 점수'
+)
+fig_corr_s.add_vline(x=0, line_width=1, line_dash='dash', line_color='gray')
+fig_corr_s.update_layout(margin=dict(l=80, r=30, t=60, b=40))
+fig_corr_s.show()
+
+# ==============================
+# 8) 요약 테이블 출력
+# ==============================
+print(corr_df[['군·구','n','pearson_r','pearson_p','spearman_rho','spearman_p']].round(4).to_string(index=False))
+
+
+```
+
+### 노령 인구와 건물 수 상관관계
+```{python}
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from scipy.stats import pearsonr, spearmanr
+
+# 데이터 불러오기
+df_population = pd.read_csv("./Data/동별인구.csv")
+df_population_filter = df_population[['군·구', '동·읍·면', '고령자_비율','위도','경도']]
+
+df_building = pd.read_csv("./Data/건축물대장_v0.5.csv")
+
+# ==============================
+# 2) 동별 고령자 평균비율
+# ==============================
+df_pop = (
+    df_population_filter
+    .groupby(['군·구','동·읍·면'], as_index=False)['고령자_비율'].mean()
+    .rename(columns={'고령자_비율':'고령자_평균비율'})
+)
+
+# 행정동명 표준화(예외 처리)
+df_pop['행정동명'] = df_pop['동·읍·면'].replace({'불로봉무동':'불로·봉무동'})
+
+# ==============================
+# 3) 행정동별 건물수
+# ==============================
+df_bld = (
+    df_building
+    .groupby('ADM_DR_NM', as_index=False)['건물노후도점수'].size()
+    .rename(columns={'size':'건물수'})
+)
+
+# ==============================
+# 4) 병합
+# ==============================
+df_m = (
+    df_pop
+    .assign(ADM_DR_NM=df_pop['행정동명'])
+    .merge(df_bld, on='ADM_DR_NM', how='inner')
+)
+
+# 고령자 비율 퍼센트로 변환
+if df_m['고령자_평균비율'].max() <= 1.0:
+    df_m['고령자_평균비율(%)'] = df_m['고령자_평균비율'] * 100
+else:
+    df_m['고령자_평균비율(%)'] = df_m['고령자_평균비율']
+
+# ==============================
+# 5) 구/군별 상관계수 계산 함수
+# ==============================
+def safe_corr(x, y, method='pearson'):
+    x = pd.Series(x).astype(float)
+    y = pd.Series(y).astype(float)
+    mask = x.notna() & y.notna() & np.isfinite(x) & np.isfinite(y)
+    x, y = x[mask], y[mask]
+    if len(x) < 3 or x.nunique() < 2 or y.nunique() < 2:
+        return np.nan, np.nan, len(x)
+    if method == 'pearson':
+        r, p = pearsonr(x, y)
+    else:
+        r, p = spearmanr(x, y)
+    return r, p, len(x)
+
+rows = []
+for gugu, g in df_m.groupby('군·구', dropna=False):
+    r_p, p_p, n_p = safe_corr(g['건물수'], g['고령자_평균비율(%)'], 'pearson')
+    r_s, p_s, n_s = safe_corr(g['건물수'], g['고령자_평균비율(%)'], 'spearman')
+    rows.append({
+        '군·구': gugu,
+        'n': int(n_p),
+        'pearson_r': r_p,
+        'pearson_p': p_p,
+        'spearman_rho': r_s,
+        'spearman_p': p_s
+    })
+
+corr_df = pd.DataFrame(rows)
+
+# ==============================
+# 6) 피어슨 상관계수 시각화
+# ==============================
+corr_df_plot = corr_df.sort_values('pearson_r', na_position='last')
+
+fig_corr_p = px.bar(
+    corr_df_plot,
+    x='pearson_r',
+    y='군·구',
+    orientation='h',
+    color='pearson_r',
+    color_continuous_scale='RdBu',
+    range_color=(-1, 1),
+    labels={'pearson_r': '피어슨 상관계수 r', '군·구': '구/군'},
+    title='구/군별 상관계수 (피어슨) — 고령인구 비율 vs 건물수'
+)
+fig_corr_p.add_vline(x=0, line_width=1, line_dash='dash', line_color='gray')
+fig_corr_p.update_layout(margin=dict(l=80, r=30, t=60, b=40))
+fig_corr_p.show()
+
+# ==============================
+# 7) 스피어만 상관계수 시각화
+# ==============================
+corr_df_plot_s = corr_df.sort_values('spearman_rho', na_position='last')
+
+fig_corr_s = px.bar(
+    corr_df_plot_s,
+    x='spearman_rho',
+    y='군·구',
+    orientation='h',
+    color='spearman_rho',
+    color_continuous_scale='RdBu',
+    range_color=(-1, 1),
+    labels={'spearman_rho': '스피어만 순위상관 ρ', '군·구': '구/군'},
+    title='구/군별 상관계수 (스피어만) — 고령인구 비율 vs 건물수'
+)
+fig_corr_s.add_vline(x=0, line_width=1, line_dash='dash', line_color='gray')
+fig_corr_s.update_layout(margin=dict(l=80, r=30, t=60, b=40))
+fig_corr_s.show()
+
+# ==============================
+# 8) 요약 테이블 출력
+# ==============================
+print(corr_df[['군·구','n','pearson_r','pearson_p','spearman_rho','spearman_p']].round(4).to_string(index=False))
+
 
 ```
 
@@ -803,3 +1179,4 @@ fig.update_layout(margin=dict(l=0,r=0,t=40,b=0), title="동별 점수평균 지�
 fig.show()
 
 ```
+
