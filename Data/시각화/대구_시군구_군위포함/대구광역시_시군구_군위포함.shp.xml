@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata xml:lang="ko"><Esri><CreaDate>20240109</CreaDate><CreaTime>13054100</CreaTime><ArcGISFormat>1.0</ArcGISFormat><SyncOnce>TRUE</SyncOnce><DataProperties><lineage><Process ToolSource="c:\program files (x86)\arcgis\desktop10.8\ArcToolbox\Toolboxes\Data Management Tools.tbx\CalculateField" Date="20221019" Time="211336">CalculateField bnd_sigungu_00_2021_2021_2Q sgg_code [SIGUNGU_CD]
+ VB #</Process><Process ToolSource="c:\program files (x86)\arcgis\desktop10.8\ArcToolbox\Toolboxes\Data Management Tools.tbx\CalculateField" Date="20221128" Time="162711">CalculateField bnd_sigungu_00_2021_2021_2Q sggcd [SIGUNGU_CD] VB #</Process></lineage></DataProperties></Esri></metadata>

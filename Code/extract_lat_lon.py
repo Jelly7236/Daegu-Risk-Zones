@@ -98,16 +98,17 @@ print("저장 완료")
 
 # 파일 합치기
 files = [
-    "../Raw Data/건축물대장_위도경도포함/건축물2_좌표.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_1.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_2.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_3.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_4.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_5.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장1_6.csv",
-    "../Raw Data/건축물대장_위도경도포함/대구_건축물대장_2(6~80000).csv",
-    "../Raw Data/건축물대장_위도경도포함/대구_건축물대장_all.csv",
-    "../Raw Data/건축물대장_위도경도포함/건축물대장(30000~49999).csv"
+    "./Raw Data/건축물대장_위도경도포함/건축물2_좌표.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_1.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_2.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_3.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_4.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_5.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장1_6.csv",
+    "./Raw Data/건축물대장_위도경도포함/대구_건축물대장_2(6~80000).csv",
+    "./Raw Data/건축물대장_위도경도포함/대구_건축물대장_all.csv",
+    "./Raw Data/건축물대장_위도경도포함/건축물대장(30000~49999).csv",
+    "./Raw Data/건축물대장_위도경도포함/수성동_좌표추가.csv"
 ]
 
 # 뽑을 컬럼 목록
@@ -129,4 +130,4 @@ for file in files:
 merged_df = pd.concat(dfs, ignore_index=True)
 
 # 저장
-merged_df.to_csv("../Data/건축물대장_통합.csv", index=False, encoding="utf-8-sig")
+merged_df.to_csv("./Data/건축물대장_v0.1.csv", index=False, encoding="utf-8-sig")
